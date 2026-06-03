@@ -216,3 +216,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ==========================================
+# 以下为本项目手动添加的过滤规则（防止数据集和Jupyter垃圾上传）
+# ==========================================
+
+# 1. 过滤 Jupyter Notebook 产生的历史备份垃圾
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# 2. 过滤你的巨型数据集（防止网页端上传因文件过大而报错）
+*.csv
+*.xlsx
+*.xls
+data/
