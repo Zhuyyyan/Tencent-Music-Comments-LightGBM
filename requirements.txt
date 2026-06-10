@@ -1,0 +1,5 @@
+gradio
+numpy
+scikit-learn
+lightgbm
+joblib
