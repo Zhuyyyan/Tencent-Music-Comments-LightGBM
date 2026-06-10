@@ -1,111 +1,134 @@
-import os
 import gradio as gr
 import pandas as pd
+import jieba
+import re
 import numpy as np
 import joblib
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-# 设置画图支持中文（兼容 Windows/Mac）
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS']
-plt.rcParams['axes.unicode_minus'] = False
+print("=== 10. 启动 Gradio 智能乐评预测系统 (线上语义逻辑对冲版) ===")
 
-# 1. 加载 LightGBM 模型大脑
+# 🌟 核心调整：从你上传的 pkl 文件中读取“大脑”，而不是从 Notebook 内存里找
 try:
-    model = joblib.load('best_model.pkl')
-    MODEL_LOADED = True
-except:
-    MODEL_LOADED = False
+    best_clf_model = joblib.load('best_model.pkl')
+    tfidf_vec = joblib.load('tfidf_vec.pkl')
+    trained_features = joblib.load('trained_features.pkl')
+    print("✅ 模型和特征组件加载成功！")
+except Exception as e:
+    print(f"❌ 加载失败，请检查 pkl 文件是否齐全: {e}")
+    # 提供一个空的 fallback 以防直接崩溃
+    trained_features = []
 
-# 2. 读取本地的完整海量数据集（供本地大屏展示）
-SONGS_FILE = 'tme_qqmusic_songs_massive.csv'
-COMMENTS_FILE = 'tme_qqmusic_comments_massive.csv'
+balanced_threshold = 0.50
 
-if os.path.exists(SONGS_FILE) and os.path.exists(COMMENTS_FILE):
+fan_keywords = ['演唱会', '华语乐坛', '陪伴', '时代', '青春是', '终于等到', '才华', 
+                '实力', '嗓音', '歌手', '偶像', '编曲', '作词', '新歌', '单曲', 
+                '专辑', '大卖', '现场', '入坑', '循环', '支持', '神仙']
+
+def classify_comment_advanced(text):
+    text_str = str(text).strip()
+    if not text_str:
+        return "❌ 请输入有效的乐评内容！"
+        
+    raw_length = len(text_str)
+    
+    # ① 初始化：严格对齐训练时的特征维度
+    X_new = pd.DataFrame(0.0, index=[0], columns=trained_features)
+    
+    # 安全赋值，只有当该特征存在时才赋值
+    if 'comment_length' in X_new.columns:
+        X_new.loc[0, 'comment_length'] = raw_length
+    if 'has_mv_flag' in X_new.columns:
+        X_new.loc[0, 'has_mv_flag'] = 1.0  
+    if 'song_tags_encoded' in X_new.columns:
+        X_new.loc[0, 'song_tags_encoded'] = 0.0 
+    
+    # 动态填充粉丝效应得分
+    fan_score = sum(1 for word in fan_keywords if word in text_str)
+    if 'fan_effect_score' in X_new.columns:
+        X_new.loc[0, 'fan_effect_score'] = float(fan_score)
+
+    # ② 分词与全面检索
+    words = jieba.lcut(text_str)
+    chinese_words = [w for w in words if re.match(r'^[\u4e00-\u9fa5]+$', w)]
+    valid_words = [w for w in chinese_words if len(w) > 1]
+    
+    cleaned_text = " ".join(valid_words)
+    hit_words = []
+    
+    # 只有当成功输入中文词且 tfidf_vec 正常工作时才处理
+    if cleaned_text and 'tfidf_vec' in globals():
+        tfidf_matrix = tfidf_vec.transform([cleaned_text])
+        feature_names = tfidf_vec.get_feature_names_out()
+        tfidf_values = tfidf_matrix.toarray()[0]
+        
+        for word, val in zip(feature_names, tfidf_values):
+            if val > 0:
+                col_name = f"纯中文词_{word}"
+                if col_name in X_new.columns:
+                    X_new.loc[0, col_name] = val
+                    hit_words.append(word)
+
+    # ③ 模型计算原始概率
     try:
-        df_songs = pd.read_csv(SONGS_FILE)
-        df_comments = pd.read_csv(COMMENTS_FILE)
-        DATA_LOADED = True
-    except:
-        DATA_LOADED = False
-else:
-    DATA_LOADED = False
-
-# 3. AI 预测神评逻辑
-def predict_review(review_text, liked_count):
-    if not review_text.strip():
-        return "❌ 请输入评论内容！", 0
-    text_len = len(review_text)
-    if MODEL_LOADED:
-        try:
-            features = np.array([[liked_count, text_len]])
-            prob = model.predict_proba(features)[0][1]
-        except:
-            prob = min(0.96, (text_len * 0.01 + liked_count * 0.005))
-    else:
-        prob = min(0.95, (text_len * 0.01 + liked_count * 0.005))
+        proba = best_clf_model.predict_proba(X_new)[0][1] 
+    except Exception as e:
+        return f"模型预测异常：{e}"
         
-    if prob >= 0.5:
-        return f"🎉 【系统判定：神评！】\n该评论内容引发强烈共鸣，冲上热评的概率极高！", round(prob * 100, 2)
-    else:
-        return f"🎵 【系统判定：普通评论】\n内容较为平实，吸引力普通。", round(prob * 100, 2)
-
-# 4. 动态读取本地全量数据绘制图表
-def show_chart(chart_name):
-    fig, ax = plt.subplots(figsize=(8, 4.5))
+    final_proba = proba
     
-    if chart_name == "📊 爬取歌曲热度排行 TOP 10":
-        if DATA_LOADED and 'song_name' in df_songs.columns:
-            # 自动寻找评论数或热度列
-            col = 'comment_num' if 'comment_num' in df_songs.columns else df_songs.columns[-1]
-            top_10 = df_songs.sort_values(by=col, ascending=False).head(10)
-            sns.barplot(x=top_10[col], y=top_10['song_name'], ax=ax, palette="plasma")
-            ax.set_title("QQ音乐当前爬取榜单最热歌曲 TOP 10 (全量数据)")
-            ax.set_xlabel("热度指标 (评论/播放数)")
-            ax.set_ylabel("歌曲名称")
+    # 🌟【语义逻辑对冲核心】：辨证上下文对冲
+    corrections = []
+    
+    敷衍批判词 = {'一般般', '一般', '随便听听', '凑热闹', '切', '难听'}
+    身份中性词 = {'纯路人', '路人', '打卡', '支持'}
+    深情长尾词 = {'深夜', '眼泪', '耳机', '哭', '憋不住', '回忆', '遗憾', '错过的', '再也', '前奏', '惊艳', '沦陷'}
+    
+    hit_bad_words = [w for w in chinese_words if w in 敷衍批判词]
+    hit_neutral_words = [w for w in chinese_words if w in 身份中性词]
+    hit_deep_words = [w for w in chinese_words if w in 深情长尾词]
+    
+    if hit_bad_words:
+        corrections.append(f"触发敷衍/批评词一票否决 (命中: {', '.join(hit_bad_words)})")
+        final_proba *= 0.2
+        
+    elif hit_deep_words:
+        if hit_neutral_words:
+            corrections.append(f"✨ 捕获【客观路人真情流露】高赞流派 (身份: {', '.join(hit_neutral_words)} | 情感: {', '.join(hit_deep_words)})")
+            final_proba = max(final_proba, 0.78)
         else:
-            ax.text(0.5, 0.5, "💡 提示：请确保本地有爬虫生成的大 CSV 数据集文件\n即可在此查看真实的完整图表看板！", ha='center', va='center', fontsize=12, color='gray')
-            ax.axis('off')
+            corrections.append(f"捕获长尾高赞情感密码 (命中: {', '.join(hit_deep_words)})")
+            final_proba = max(final_proba, 0.65) 
             
-    elif chart_name == "🎯 LightGBM 特征重要性排行榜":
-        features = ['评论基础点赞数', '评论文本长度', '词语丰富度得分', '用户等级系数', '情感积极度倾向']
-        importances = [0.55, 0.22, 0.12, 0.07, 0.04]
-        sns.barplot(x=importances, y=features, ax=ax, palette="viridis")
-        ax.set_title("LightGBM 模型判断“神评”的核心依据特征权重")
-        ax.set_xlabel("贡献度 (Importance)")
-        
-    elif chart_name == "📈 模型训练混淆矩阵":
-        cm = [[4520, 180], [130, 840]]
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax,
-                    xticklabels=['预测普通', '预测神评'], yticklabels=['真实普通', '真实神评'])
-        ax.set_title("LightGBM 分类器在测试集上的分类精准度评估")
-        
-    plt.tight_layout()
-    return fig
+    elif hit_neutral_words:
+        corrections.append(f"仅为普通路人/打卡流水账，缺乏长尾共鸣 (命中: {', '.join(hit_neutral_words)})")
+        final_proba *= 0.5 
 
-# 5. 搭建完整大屏界面
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🎵 QQ音乐榜单数据挖掘与“神评”AI智能预测系统")
-    gr.Markdown("呈现 Python 自动化爬虫数据与 LightGBM 机器学习模型的全流程融合应用。")
+    # ④ 诊断面板
+    diagnostic_panel = (
+        f"📊 【语义对冲版 - 决策报告】\n"
+        f"1. 评论原始字数：{raw_length} 字\n"
+        f"2. 命中高频特征词：{', '.join(set(hit_words)) if hit_words else '无'}\n"
+        f"3. 模型原生概率：{proba:.2%}\n"
+    )
+    if corrections:
+        diagnostic_panel += f"🛠️ 语义纠偏动作：\n" + "\n".join([f"   • {c}" for c in corrections]) + "\n"
+        
+    diagnostic_panel += f"📈 最终校准后置信度：{final_proba:.2%} (及格线：{balanced_threshold:.2%})\n"
+    diagnostic_panel += f"--------------------------------------------------\n"
     
-    with gr.Tabs():
-        with gr.TabItem("🚀 AI 神评智能预测"):
-            with gr.Row():
-                with gr.Column():
-                    text_input = gr.Textbox(label="请输入一条音乐评论", placeholder="前奏一响，鸡皮疙瘩掉一地，大爱这首歌！", lines=3)
-                    likes_input = gr.Slider(minimum=0, maximum=5000, value=10, step=1, label="该评论的基础点赞数")
-                    btn = gr.Button("开始 AI 智能检测", variant="primary")
-                with gr.Column():
-                    text_out = gr.Textbox(label="判定结果", lines=2)
-                    prob_out = gr.Label(label="成为神评的概率占分 (%)")
-            btn.click(fn=predict_review, inputs=[text_input, likes_input], outputs=[text_out, prob_out])
-            
-        with gr.TabItem("📊 真实爬虫数据与模型成果看板"):
-            selector = gr.Radio(["📊 爬取歌曲热度排行 TOP 10", "🎯 LightGBM 特征重要性排行榜", "📈 模型训练混淆矩阵"], 
-                                label="请选择要切换查看的数据面板：", value="📊 爬取歌曲热度排行 TOP 10")
-            plot_out = gr.Plot()
-            selector.change(fn=show_chart, inputs=selector, outputs=plot_out)
-            demo.load(fn=show_chart, inputs=selector, outputs=plot_out)
+    if final_proba >= balanced_threshold:
+        return diagnostic_panel + "🌟 最终判定：【优质神评潜力股 (1)】"
+    else:
+        return diagnostic_panel + "💬 最终判定：【普通评论 (0)】"
+
+# 启动 Web
+interface = gr.Interface(
+    fn=classify_comment_advanced, 
+    inputs=gr.Textbox(lines=5, placeholder="前奏一响，深夜的耳机里全都是遗憾...", label="📝 待测乐评"),
+    outputs=gr.Textbox(lines=12, label="📊 智能对冲决策结果"),
+    title="🎵 腾讯音乐智能乐评挖掘系统 (语义对冲校准版)",
+    description="基于 LightGBM 机器学习与 TF-IDF 特征矩阵，并辅以专家经验的语义对冲纠偏系统。"
+)
 
 if __name__ == "__main__":
-    demo.launch()
+    interface.launch()
