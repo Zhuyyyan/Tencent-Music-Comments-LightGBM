@@ -11,7 +11,8 @@
 
 🔥 **[点击这里：一键在线进入“神评”预测与数据大屏系统](https://huggingface.co/spaces/Zhuyyyan/qqmusic-project-app)** 🔥
 
-*(注：云端轻量级容器若遇首次加载可能需要数秒唤醒，待网页状态显示为 Running 后即可进行流畅的 1:1 交互)*
+*(注：云端轻量级容器若遇首次加载可能需要数秒唤醒，待网页状态显示为 Running 后即可进行流畅的 1:1 交互
+如果页面首次打开显示 Starting 或加载较慢，请等待 1–3 分钟，Hugging Face Space 会自动从休眠状态启动。)*
 
 ---
 
