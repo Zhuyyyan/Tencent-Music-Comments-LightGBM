@@ -177,15 +177,13 @@ python app.py
 
 ## 🗄️ 数据库存储补充 (Database Storage)
 
-为对应课程项目中“数据存储”部分，仓库补充了 `database/` 文件夹。本项目采用 MongoDB 作为主要数据库存储方案，与期末项目报告中的 MongoDB 数据库存储说明保持一致。
+为对应课程项目中“数据存储”部分，仓库补充了 `database/` 文件夹。本项目采用 MongoDB 作为数据库存储方案，与期末项目报告中的 MongoDB 数据库存储说明保持一致。
 
 ```text
  database/
  ┣ 📜 mongodb_storage.py                # MongoDB 入库脚本：读取 CSV 并写入本地 MongoDB 数据库
  ┣ 📄 mongo_collection_schema.md        # 集合字段说明：说明 songs 与 comments 两个集合的主要字段
- ┣ 📄 README_database.md                # 数据库存储说明：记录 MongoDB 存储方案、运行方式与复现步骤
- ┣ 📜 database_storage.py               # SQLite 可选补充脚本：保留旧版数据库写入方案，不作为主流程
- ┗ 📜 create_tables.sql                 # SQLite 可选补充文件：保留旧版 SQL 表结构，不作为主流程
+ ┗ 📄 README_database.md                # 数据库存储说明：记录 MongoDB 存储方案、运行方式与复现步骤
 ```
 
 运行方式：
@@ -212,5 +210,3 @@ qqmusic_project
 - `comments`：存储评论 ID、歌曲 ID、用户昵称、评论内容、点赞数和评论时间等信息。
 
 `mongodb_storage.py` 会从项目根目录、`data/` 或 `datasets/` 中查找 `tme_qqmusic_songs_massive.csv` 和 `tme_qqmusic_comments_massive.csv`，导入前会清空原有集合以避免重复插入，并为 `songs.song_id`、`comments.song_id`、`comments.comment_id` 创建索引。
-
-SQLite 相关文件仅作为可选补充保留；课程报告对应版本以 MongoDB 数据库存储为主。
