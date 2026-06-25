@@ -4,7 +4,7 @@
 
 ## 存储方案
 
-本项目采用 MongoDB 作为主要数据库存储方案，与期末项目报告中的数据存储部分保持一致。MongoDB 属于文档型数据库，适合保存歌曲信息和评论文本这类字段较直观、后续可按文档扩展的数据。
+本项目采用 MongoDB 作为数据库存储方案，与期末项目报告中的数据存储部分保持一致。MongoDB 属于文档型数据库，适合保存歌曲信息和评论文本这类字段较直观、后续可按文档扩展的数据。
 
 运行 `python database/mongodb_storage.py` 后，会在本地 MongoDB 中生成数据库：
 
@@ -22,8 +22,6 @@ qqmusic_project
 - `mongodb_storage.py`：MongoDB 入库脚本，读取项目 CSV 数据并写入本地 MongoDB。
 - `mongo_collection_schema.md`：MongoDB 集合字段说明，列出 `songs` 和 `comments` 两个集合的主要字段。
 - `README_database.md`：数据库存储说明文件。
-- `database_storage.py`：SQLite 版本入库脚本，作为可选补充保留，不作为本项目课程报告对应的主流程。
-- `create_tables.sql`：SQLite 表结构文件，作为可选补充保留。
 
 ## CSV 文件位置
 
