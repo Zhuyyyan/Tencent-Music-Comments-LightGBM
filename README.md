@@ -97,7 +97,11 @@ Tencent-Music-Comments-LightGBM/
 ├── tfidf_vec.pkl
 ├── trained_features.pkl
 ├── tme_qqmusic_songs_massive.csv
-└── tme_qqmusic_comments_massive.csv
+├── tme_qqmusic_comments_massive.csv
+└── database/
+    ├── mongodb_storage.py
+    ├── mongo_collection_schema.md
+    └── README_database.md
 ```
 
 ## 本地运行
@@ -165,37 +169,48 @@ python app.py
  ┣ 🧠 tfidf_vec.pkl                     # 序列化组件：训练集高维语义词袋矩阵提取器（用于线上特征对齐）
  ┣ 🧠 trained_features.pkl              # 序列化组件：标准高维特征列名称对齐名单（防止特征维度缺失报错）
  ┣ 📊 tme_qqmusic_songs_massive.csv     # 核心数据集：基础歌曲库热度原始数据（支持开箱即用渲染大屏）
- ┗ 📊 tme_qqmusic_comments_massive.csv  # 核心数据集：5万条海量原始用户乐评数据（支持开箱即用渲染大屏）
+ ┣ 📊 tme_qqmusic_comments_massive.csv  # 核心数据集：5万条海量原始用户乐评数据（支持开箱即用渲染大屏）
+ ┗ 🗄️ database/                         # 数据库存储模块：MongoDB 入库脚本、集合字段说明和数据库说明文件
 ```
 
 ---
 
 ## 🗄️ 数据库存储补充 (Database Storage)
 
-为对应课程项目中“数据存储”部分，仓库额外补充了 `database/` 文件夹，用于将项目 CSV 数据导入 SQLite 数据库，便于后续 SQL 查询和复现检查。
+为对应课程项目中“数据存储”部分，仓库补充了 `database/` 文件夹。本项目采用 MongoDB 作为主要数据库存储方案，与期末项目报告中的 MongoDB 数据库存储说明保持一致。
 
 ```text
  database/
- ┣ 📜 create_tables.sql                 # 数据表结构文件：包含 songs 与 comments 两张表的建表语句
- ┣ 📜 database_storage.py               # 数据库存储脚本：读取 CSV 并写入 SQLite 数据库
- ┗ 📄 README_database.md                # 数据库存储说明：记录字段含义、运行方式与复现步骤
+ ┣ 📜 mongodb_storage.py                # MongoDB 入库脚本：读取 CSV 并写入本地 MongoDB 数据库
+ ┣ 📄 mongo_collection_schema.md        # 集合字段说明：说明 songs 与 comments 两个集合的主要字段
+ ┣ 📄 README_database.md                # 数据库存储说明：记录 MongoDB 存储方案、运行方式与复现步骤
+ ┣ 📜 database_storage.py               # SQLite 可选补充脚本：保留旧版数据库写入方案，不作为主流程
+ ┗ 📜 create_tables.sql                 # SQLite 可选补充文件：保留旧版 SQL 表结构，不作为主流程
 ```
 
 运行方式：
 
 ```bash
-python database/database_storage.py
+python database/mongodb_storage.py
 ```
 
-运行后会在项目根目录生成：
+运行前请确保本地 MongoDB 服务已启动，连接地址为：
 
 ```text
-qqmusic_comments.db
+mongodb://localhost:27017/
 ```
 
-其中包含两张数据表：
+运行后会生成 MongoDB 数据库：
 
-- `songs`：存储歌曲 ID、歌曲名称、歌手名称、歌曲类型、MV 标识和来源榜单等信息；
-- `comments`：存储歌曲 ID、评论 ID、用户昵称、评论内容、点赞数和评论时间等信息。
+```text
+qqmusic_project
+```
 
-该部分不改变原有分析流程，只作为数据库存储与 SQL 文件的补充材料。
+其中包含两个集合：
+
+- `songs`：存储歌曲 ID、歌曲名称、歌手名称、歌曲标签、MV 标识和来源榜单等信息；
+- `comments`：存储评论 ID、歌曲 ID、用户昵称、评论内容、点赞数和评论时间等信息。
+
+`mongodb_storage.py` 会从项目根目录、`data/` 或 `datasets/` 中查找 `tme_qqmusic_songs_massive.csv` 和 `tme_qqmusic_comments_massive.csv`，导入前会清空原有集合以避免重复插入，并为 `songs.song_id`、`comments.song_id`、`comments.comment_id` 创建索引。
+
+SQLite 相关文件仅作为可选补充保留；课程报告对应版本以 MongoDB 数据库存储为主。
