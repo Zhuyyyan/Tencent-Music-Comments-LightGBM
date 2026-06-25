@@ -166,3 +166,36 @@ python app.py
  ┣ 🧠 trained_features.pkl              # 序列化组件：标准高维特征列名称对齐名单（防止特征维度缺失报错）
  ┣ 📊 tme_qqmusic_songs_massive.csv     # 核心数据集：基础歌曲库热度原始数据（支持开箱即用渲染大屏）
  ┗ 📊 tme_qqmusic_comments_massive.csv  # 核心数据集：5万条海量原始用户乐评数据（支持开箱即用渲染大屏）
+```
+
+---
+
+## 🗄️ 数据库存储补充 (Database Storage)
+
+为对应课程项目中“数据存储”部分，仓库额外补充了 `database/` 文件夹，用于将项目 CSV 数据导入 SQLite 数据库，便于后续 SQL 查询和复现检查。
+
+```text
+ database/
+ ┣ 📜 create_tables.sql                 # 数据表结构文件：包含 songs 与 comments 两张表的建表语句
+ ┣ 📜 database_storage.py               # 数据库存储脚本：读取 CSV 并写入 SQLite 数据库
+ ┗ 📄 README_database.md                # 数据库存储说明：记录字段含义、运行方式与复现步骤
+```
+
+运行方式：
+
+```bash
+python database/database_storage.py
+```
+
+运行后会在项目根目录生成：
+
+```text
+qqmusic_comments.db
+```
+
+其中包含两张数据表：
+
+- `songs`：存储歌曲 ID、歌曲名称、歌手名称、歌曲类型、MV 标识和来源榜单等信息；
+- `comments`：存储歌曲 ID、评论 ID、用户昵称、评论内容、点赞数和评论时间等信息。
+
+该部分不改变原有分析流程，只作为数据库存储与 SQL 文件的补充材料。
