@@ -177,7 +177,7 @@ python app.py
 
 ## 🗄️ 数据库存储补充 (Database Storage)
 
-为对应课程项目中“数据存储”部分，仓库补充了 `database/` 文件夹。本项目采用 MongoDB 作为数据库存储方案，与期末项目报告中的 MongoDB 数据库存储说明保持一致。
+本项目采用 MongoDB 作为数据库存储方案。
 
 ```text
  database/
